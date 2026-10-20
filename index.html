@@ -1,0 +1,956 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="HDD 水平導向鑽掘回拖力計算工具：HDPE（ASTM F1962）與鋼管（PRCI 法），含計算過程與 Word 計算書匯出。">
+<title>HDD 回拖力計算</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Oswald:wght@500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+/* Layout: calc-sheet — input sheet left, profile + results right; stacks to one column on phones */
+:root{
+  --bg:#f3f4f2; --paper:#ffffff; --ink:#1d2328; --muted:#5d666d; --line:#d6dad8;
+  --accent:#c2571a; --steel:#2f5f86; --soil:#e7dcc8; --soil-ink:#a8916a; --mud:#b9a27c;
+  --ok:#2e7d4f; --warn:#b7791f; --bad:#b3261e;
+  --f-display:"Oswald","Noto Sans TC",sans-serif;
+  --f-body:"Noto Sans TC",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#15191c; --paper:#1d2226; --ink:#e6e9e7; --muted:#9aa3a8; --line:#323a40;
+  --accent:#e27a3c; --steel:#7fb0d8; --soil:#3a3226; --soil-ink:#8c7a5a; --mud:#7d6b4f;
+  --ok:#5dbb84; --warn:#e0a84a; --bad:#ef7468; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15191c; --paper:#1d2226; --ink:#e6e9e7; --muted:#9aa3a8; --line:#323a40;
+  --accent:#e27a3c; --steel:#7fb0d8; --soil:#3a3226; --soil-ink:#8c7a5a; --mud:#7d6b4f;
+  --ok:#5dbb84; --warn:#e0a84a; --bad:#ef7468; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 20px;border-bottom:2px solid var(--ink);padding-bottom:10px}
+h1{font-family:var(--f-display);font-weight:600;font-size:30px;letter-spacing:.02em;margin:0;line-height:1.1;text-wrap:balance}
+h1 small{display:block;font-family:var(--f-mono);font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.08em;margin-top:4px}
+.switches{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--ink);border-radius:3px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;color:var(--ink);padding:6px 14px;font-family:var(--f-body);font-size:13px;font-weight:500;cursor:pointer}
+.seg button+button{border-left:1px solid var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.seg-l{font-size:11px;color:var(--muted);letter-spacing:.08em;margin-right:6px}
+.std{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.sheet{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:14px 16px;display:flex;flex-direction:column;gap:14px}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+legend{font-family:var(--f-display);font-size:13px;letter-spacing:.12em;color:var(--accent);text-transform:uppercase;padding:0 0 3px;margin-bottom:6px;width:100%;border-bottom:1px solid var(--line)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 110px 44px;gap:8px;align-items:center}
+.row label{font-size:13px;min-width:0}
+.row label i{font-family:var(--f-mono);font-style:normal;color:var(--muted);font-size:12px;margin-left:4px}
+.row .u{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+input,select{font-family:var(--f-mono);font-size:13.5px;width:100%;padding:5px 7px;border:1px solid var(--line);border-radius:3px;background:var(--bg);color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
+select{text-align:left}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--steel);outline-offset:1px}
+input[readonly]{background:transparent;border-style:dashed;color:var(--muted)}
+.chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.chk input{width:auto}
+.note{font-size:12px;color:var(--muted);margin:0}
+.right{display:flex;flex-direction:column;gap:18px;min-width:0}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:14px 16px;min-width:0}
+.panel h2{font-family:var(--f-display);font-weight:500;font-size:15px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 10px;color:var(--muted)}
+.panel h2 span{font-family:var(--f-mono);font-size:12px;letter-spacing:0;text-transform:none;margin-left:8px}
+.verdict{display:flex;flex-wrap:wrap;gap:14px 28px;align-items:flex-end}
+.big{font-family:var(--f-mono);font-size:38px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.big span{font-size:15px;font-weight:500;color:var(--muted);margin-left:4px}
+.kv{display:flex;flex-direction:column;gap:2px}
+.kv b{font-size:12px;font-weight:500;color:var(--muted)}
+.kv em{font-style:normal;font-family:var(--f-mono);font-size:18px;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid currentColor}
+.pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)}
+.meter{margin-top:12px;height:10px;background:var(--bg);border:1px solid var(--line);border-radius:2px;position:relative;overflow:hidden}
+.meter i{position:absolute;inset:0 auto 0 0;background:var(--steel)}
+.meter i.warn{background:var(--warn)} .meter i.bad{background:var(--bad)}
+.meter-l{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-top:3px}
+.svgbox{overflow-x:auto}
+svg text{font-family:var(--f-mono)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--f-mono);font-size:13px;white-space:nowrap}
+th{font-family:var(--f-body);font-weight:500;font-size:12px;color:var(--muted)}
+th:first-child,td:first-child{text-align:left;font-family:var(--f-body)}
+tr.max td{color:var(--accent);font-weight:600}
+td.ok{color:var(--ok)} td.warn{color:var(--warn)} td.bad{color:var(--bad)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.warns{margin:10px 0 0;padding-left:18px;color:var(--warn);font-size:13px}
+.warns:empty{display:none}
+footer{font-size:12px;color:var(--muted);max-width:80ch;display:flex;flex-direction:column;gap:6px}
+footer p{margin:0}
+button.plain{font-family:var(--f-body);font-size:13px;padding:6px 12px;border:1px solid var(--line);border-radius:3px;background:var(--bg);color:var(--ink);cursor:pointer}
+button.plain:hover{border-color:var(--steel)}
+.row2{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;align-items:center}
+.row2 label{font-size:13px}
+.row2 input{text-align:left;font-family:var(--f-body)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btns button{flex:1 1 auto}
+button.plain:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:500}
+button.primary:hover{border-color:var(--accent)}
+button.armed{border-color:var(--bad);color:var(--bad)}
+.note.err{color:var(--bad)} .note.okm{color:var(--ok)}
+details.proc>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center}
+details.proc>summary::-webkit-details-marker{display:none}
+details.proc>summary h2{margin:0;color:var(--ink)}
+details.proc>summary h2::before{content:"▸";display:inline-block;width:1.1em;color:var(--accent)}
+details.proc[open]>summary h2::before{content:"▾"}
+details.proc>summary:hover h2{color:var(--accent)}
+.proc-note{font-size:12px;color:var(--muted);margin:10px 0 8px}
+.steps{display:flex;flex-direction:column;gap:8px}
+details.step{border:1px solid var(--line);border-radius:3px;background:var(--paper)}
+details.step>summary{cursor:pointer;padding:7px 10px;font-weight:700;font-size:13px;display:flex;gap:8px;align-items:baseline}
+details.step>summary b{font-family:var(--f-mono);color:var(--accent);font-weight:600}
+details.step>summary em{font-style:normal;font-family:var(--f-mono);font-weight:500;color:var(--muted);margin-left:auto;font-size:12px;white-space:nowrap}
+.eq{font-family:var(--f-mono);font-size:12.5px;line-height:1.8;overflow-x:auto;padding:6px 12px 10px;border-top:1px solid var(--line);background:var(--bg)}
+.eq .ln{white-space:nowrap}
+.eq .f{color:var(--muted)}
+.eq .c{font-family:var(--f-body);color:var(--muted);font-size:12px;white-space:normal}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>HDD 回拖力計算<small id="sub">HORIZONTAL DIRECTIONAL DRILLING · PULLBACK FORCE</small></h1>
+    <div class="switches">
+      <div><span class="seg-l">管材</span><span class="seg" role="group" aria-label="管材">
+        <button type="button" id="mHDPE" aria-pressed="true">HDPE</button><button type="button" id="mSteel" aria-pressed="false">鋼管</button></span></div>
+      <div><span class="seg-l">力單位</span><span class="seg" role="group" aria-label="力單位">
+        <button type="button" id="uKN" aria-pressed="true">kN</button><button type="button" id="uTF" aria-pressed="false">tf</button></span></div>
+      <div><span class="seg-l">外觀</span><span class="seg" role="group" aria-label="外觀">
+        <button type="button" id="tLight" aria-pressed="false">亮</button><button type="button" id="tDark" aria-pressed="false">暗</button><button type="button" id="tSys" aria-pressed="true">系統</button></span></div>
+      <span class="std" id="stdTag">ASTM F1962</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <form class="sheet" id="f" autocomplete="off">
+      <fieldset>
+        <legend>案例與檔案</legend>
+        <div class="row2"><label for="caseName">案例名稱</label><input id="caseName" type="text" maxlength="60" placeholder="例：OO 溪穿越 HDPE 400"></div>
+        <div class="row2"><label for="caseList">已儲存案例</label><select id="caseList"></select></div>
+        <div class="btns">
+          <button type="button" class="plain" id="bSave">儲存</button>
+          <button type="button" class="plain" id="bLoad">載入</button>
+          <button type="button" class="plain" id="bDel">刪除</button>
+        </div>
+        <div class="btns">
+          <button type="button" class="plain" id="bExport" disabled>匯出案例檔（.json）</button>
+          <button type="button" class="plain" id="bImport">匯入案例檔</button>
+          <input type="file" id="fileIn" accept=".json,application/json" hidden>
+        </div>
+        <div class="btns"><button type="button" class="plain primary" id="bWord" disabled>匯出 Word 計算書</button></div>
+        <p class="note" id="caseMsg" aria-live="polite">「儲存」存在這個瀏覽器；匯出檔可在其他電腦匯入。</p>
+      </fieldset>
+      <!-- HDPE pipe -->
+      <fieldset data-mode="hdpe">
+        <legend>HDPE 管材</legend>
+        <div class="row"><label for="D">管外徑<i>D</i></label><input id="D" type="number" step="1" value="400"><span class="u">mm</span></div>
+        <div class="row"><label for="DR">尺寸比<i>DR</i></label><input id="DR" type="number" step="0.5" value="11"><span class="u">—</span></div>
+        <div class="row"><label for="rho">管材密度<i>ρ</i></label><input id="rho" type="number" step="1" value="955"><span class="u">kg/m³</span></div>
+        <div class="row"><label for="grade">材料等級</label>
+          <select id="grade">
+            <option value="7.93">PE4710（1150 psi）</option>
+            <option value="7.58">PE3408（1100 psi）</option>
+            <option value="custom">自訂</option>
+          </select><span class="u"></span></div>
+        <div class="row"><label for="sig">容許拉應力<i>σ<sub>a</sub></i></label><input id="sig" type="number" step="0.01" value="7.93"><span class="u">MPa</span></div>
+      </fieldset>
+      <!-- Steel pipe -->
+      <fieldset data-mode="steel" hidden>
+        <legend>鋼管管材</legend>
+        <div class="row"><label for="Ds">管外徑<i>D</i></label><input id="Ds" type="number" step="0.1" value="406.4"><span class="u">mm</span></div>
+        <div class="row"><label for="ts">管壁厚<i>t</i></label><input id="ts" type="number" step="0.1" value="12.7"><span class="u">mm</span></div>
+        <div class="row"><label for="sgrade">鋼材等級</label>
+          <select id="sgrade">
+            <option value="241">API 5L Gr.B（241 MPa）</option>
+            <option value="290">X42（290 MPa）</option>
+            <option value="359" selected>X52（359 MPa）</option>
+            <option value="414">X60（414 MPa）</option>
+            <option value="448">X65（448 MPa）</option>
+            <option value="483">X70（483 MPa）</option>
+            <option value="custom">自訂</option>
+          </select><span class="u"></span></div>
+        <div class="row"><label for="Fy">規定最小降伏強度<i>SMYS</i></label><input id="Fy" type="number" step="1" value="359"><span class="u">MPa</span></div>
+        <div class="row"><label for="Es">彈性模數<i>E</i></label><input id="Es" type="number" step="1000" value="207000"><span class="u">MPa</span></div>
+        <div class="row"><label for="gs">鋼材單位重<i>γ<sub>s</sub></i></label><input id="gs" type="number" step="0.1" value="77.0"><span class="u">kN/m³</span></div>
+        <div class="row"><label for="wc">被覆層重量</label><input id="wc" type="number" step="0.01" value="0.05"><span class="u">kN/m</span></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>線形</legend>
+        <div class="row"><label for="H">穿越深度<i>H</i></label><input id="H" type="number" step="0.5" value="15"><span class="u">m</span></div>
+        <div class="row"><label for="al">A 端角度（管材側）<i>α</i></label><input id="al" type="number" step="0.5" value="12"><span class="u">°</span></div>
+        <div class="row"><label for="be">D 端角度（鑽機側）<i>β</i></label><input id="be" type="number" step="0.5" value="10"><span class="u">°</span></div>
+        <div class="row"><label for="L3">水平段長<i>L₃</i></label><input id="L3" type="number" step="1" value="200"><span class="u">m</span></div>
+        <div data-mode="hdpe" style="display:contents">
+          <div class="row"><label for="L2">A 側水平距<i>L₂</i></label><input id="L2" type="number" step="0.1"><span class="u">m</span></div>
+          <div class="row"><label for="L4">D 側水平距<i>L₄</i></label><input id="L4" type="number" step="0.1"><span class="u">m</span></div>
+          <label class="chk"><input id="auto" type="checkbox" checked> L₂、L₄ 自動取 2H/α、2H/β（F1962 近似）</label>
+        </div>
+        <div data-mode="steel" style="display:contents" hidden>
+          <div class="row"><label for="R">設計曲率半徑<i>R</i></label><input id="R" type="number" step="1"><span class="u">m</span></div>
+          <label class="chk"><input id="autoR" type="checkbox" checked> R 自動取 1200D</label>
+        </div>
+        <div class="row"><label for="L1">地表額外管長<i>L₁</i></label><input id="L1" type="number" step="1" value="20"><span class="u">m</span></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>泥漿與孔況</legend>
+        <div class="row"><label for="sg">泥漿比重<i>SG</i></label><input id="sg" type="number" step="0.01" value="1.30"><span class="u">—</span></div>
+        <div class="row"><label for="fill">管內灌水比例</label><input id="fill" type="number" step="5" min="0" max="100" value="0"><span class="u">%</span></div>
+        <div data-mode="hdpe" style="display:contents">
+          <div class="row"><label for="hr">擴孔比<i>D<sub>h</sub>/D</i></label><input id="hr" type="number" step="0.05" value="1.5"><span class="u">—</span></div>
+          <div class="row"><label for="dp">流體壓差<i>ΔP</i></label><input id="dp" type="number" step="1" value="69"><span class="u">kPa</span></div>
+        </div>
+        <div data-mode="steel" style="display:contents" hidden>
+          <div class="row"><label for="tau">流體拖曳係數<i>τ</i></label><input id="tau" type="number" step="1" value="172"><span class="u">Pa</span></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>摩擦與係數</legend>
+        <div data-mode="hdpe" style="display:contents">
+          <div class="row"><label for="ua">地表摩擦係數<i>μ<sub>a</sub></i></label><input id="ua" type="number" step="0.05" value="0.5"><span class="u">—</span></div>
+        </div>
+        <div data-mode="steel" style="display:contents" hidden>
+          <div class="row"><label for="uas">地表摩擦係數（滾輪）<i>μ<sub>a</sub></i></label><input id="uas" type="number" step="0.05" value="0.1"><span class="u">—</span></div>
+        </div>
+        <div class="row"><label for="ub">孔內摩擦係數<i>μ<sub>b</sub></i></label><input id="ub" type="number" step="0.05" value="0.3"><span class="u">—</span></div>
+        <div class="row"><label for="rig">鑽機能力倍數</label><input id="rig" type="number" step="0.1" value="1.5"><span class="u">×</span></div>
+      </fieldset>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="plain" id="reset">回復範例值</button></div>
+      <p class="note">預設值為範例案例，請改成你的實際案例。</p>
+    </form>
+
+    <div class="right">
+      <section class="panel">
+        <h2>結果<span id="mTag">HDPE · ASTM F1962</span></h2>
+        <div class="verdict">
+          <div class="kv"><b>最大回拖力 T<sub>max</sub></b><div class="big" id="oTmax">—</div></div>
+          <div class="kv"><b id="capLbl">安全回拖強度 SPS</b><em id="oSPS">—</em></div>
+          <div class="kv"><b>建議鑽機回拖能力</b><em id="oRig">—</em></div>
+          <div class="kv"><b>判定</b><span id="oPill" class="pill ok">—</span></div>
+        </div>
+        <div class="meter"><i id="oBar"></i></div>
+        <div class="meter-l"><span>0</span><span id="oUtil">使用率 —</span><span id="meterR">SPS</span></div>
+        <ul class="warns" id="oWarn"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>穿越剖面與各點張力</h2>
+        <div class="svgbox"><svg id="prof" viewBox="0 0 760 260" width="100%" role="img" aria-label="HDD 穿越剖面與各點張力"></svg></div>
+      </section>
+
+      <div class="cols">
+        <section class="panel">
+          <h2 id="tTitle">各點張力</h2>
+          <div class="tbl"><table><thead id="oTh"></thead><tbody id="oT"></tbody></table></div>
+        </section>
+        <section class="panel">
+          <h2>中間量</h2>
+          <div class="tbl"><table><tbody id="oMid"></tbody></table></div>
+        </section>
+      </div>
+
+      <section class="panel" data-mode="steel" hidden>
+        <h2>鋼管應力檢核<span>PRCI · 回拖階段</span></h2>
+        <div class="tbl"><table>
+          <thead><tr><th>檢核項目</th><th>計算值</th><th>容許值</th><th>比值</th></tr></thead>
+          <tbody id="oChk"></tbody>
+        </table></div>
+      </section>
+
+      <section class="panel">
+        <h2>灌水壓艙比較</h2>
+        <div class="tbl"><table>
+          <thead><tr><th>管內狀態</th><th id="cmpW">w kN/m</th><th id="cmpT">T<sub>max</sub> kN</th><th>控制比值</th></tr></thead>
+          <tbody id="oCmp"></tbody>
+        </table></div>
+      </section>
+
+      <section class="panel">
+        <details class="proc" id="procBox">
+          <summary><h2>計算過程<span id="procTag"></span></h2></summary>
+          <p class="proc-note">計算過程以 kN、m、MPa 表示，數值隨輸入即時更新。點各步驟標題可單獨收合。</p>
+          <div class="steps" id="oProc"></div>
+        </details>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    <p data-mode="hdpe"><b>HDPE（ASTM F1962）</b>：A 為管材入孔端、D 為鑽機端。
+      T<sub>A</sub> = e<sup>μ<sub>a</sub>α</sup>·μ<sub>a</sub>·wa·(L₁+L₂+L₃+L₄)；
+      T<sub>B</sub> = e<sup>μ<sub>b</sub>α</sup>[T<sub>A</sub> + μ<sub>b</sub>|wb|L₂ + wb·H − μ<sub>a</sub>·wa·L₂·e<sup>μ<sub>a</sub>α</sup>]；
+      T<sub>C</sub> = T<sub>B</sub> + μ<sub>b</sub>|wb|L₃ − e<sup>μ<sub>b</sub>α</sup>(μ<sub>a</sub>·wa·L₃·e<sup>μ<sub>a</sub>α</sup>)；
+      T<sub>D</sub> = e<sup>μ<sub>b</sub>β</sup>[T<sub>C</sub> + μ<sub>b</sub>|wb|L₄ − wb·H − e<sup>μ<sub>b</sub>α</sup>(μ<sub>a</sub>·wa·L₄·e<sup>μ<sub>a</sub>α</sup>)]；
+      ΔT = ΔP·(π/8)·(D<sub>h</sub>² − D²)，加於 B、C、D 點。w<sub>b</sub> 為淨浮力（向上為正）。SPS = σ<sub>a</sub>·πD²·(1/DR − 1/DR²)。</p>
+    <p data-mode="steel" hidden><b>鋼管（PRCI 法）</b>：線形分為 A 側直線段、凹彎、水平段、凸彎、D 側直線段，計算管材完全入孔時的張力。
+      直線段 T₂ = T₁ + μ<sub>b</sub>|W·cosθ|·L + π·D·L·τ + W·Δz；
+      曲線段 T₂ = T₁ + 2μ<sub>b</sub>·N + π·D·L·τ + W·Δz，
+      N = |T·h − W·cosθ·Y| / X，h = R(1 − cos(φ/2))，j = √(EI/T)，U = L/j，
+      X = L/4 − (j/2)·tanh(U/2)，Y = L²/8 − j²·(1 − sech(U/2))；T 取段內平均並迭代。
+      W 為有效重量（向下為正）= 管重 + 被覆 + 管內水重 − 泥漿浮力。
+      應力檢核：拉應力 ≤ 0.9 SMYS；彎曲應力 f<sub>b</sub> = ED/(2R)，容許值依 D/t 分級；外壓環向應力 ≤ F<sub>hc</sub>/1.5；拉＋彎與拉＋彎＋環向組合檢核。</p>
+    <p>本工具供初步設計與鑽機選用參考。1 tf = 9.80665 kN。HDPE 容許拉應力請依 PPI Handbook 或 F1962 現行版次、載重時間與溫度修正確認；鋼管的營運期應力需另行檢核；正式計算書請以標準原文核對。</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const ids=["D","DR","rho","grade","sig","Ds","ts","sgrade","Fy","Es","gs","wc","H","al","be","L3","L2","L4","R","L1","sg","fill","hr","dp","tau","ua","uas","ub","rig"];
+  const checks=["auto","autoR"];
+  const defaults={}; ids.forEach(k=>defaults[k]=$(k).value);
+  const KEY="hdd-pullback-v2";
+  const st={mode:"hdpe",unit:"kN"};
+  try{const s=JSON.parse(localStorage.getItem(KEY)||"null");
+    if(s){ids.forEach(k=>{if(s[k]!=null)$(k).value=s[k]}); checks.forEach(k=>{if(s[k]!=null)$(k).checked=s[k]});
+      if(s.mode)st.mode=s.mode; if(s.unit)st.unit=s.unit;}}catch(e){}
+
+  const num=k=>parseFloat($(k).value);
+  const deg=x=>x*Math.PI/180;
+  const f1=(x,d=1)=>isFinite(x)?x.toFixed(d):"—";
+  const TF=9.80665;
+  const F=x=>st.unit==="tf"?x/TF:x;
+  const uF=()=>st.unit;
+  const uW=()=>st.unit+"/m";
+  const fF=(x,d)=>f1(F(x),d==null?(st.unit==="tf"?2:1):d);
+  const cls=u=>u<=0.8?"ok":u<=1?"warn":"bad";
+
+  /* ---------- HDPE · ASTM F1962 ---------- */
+  function calcHDPE(p,fillFrac){
+    const D=p.D/1000, t=D/p.DR, d=D-2*t, g=9.81;
+    const Ap=Math.PI/4*(D*D-d*d);
+    const wa=p.rho*g*Ap/1000;
+    const Fb=p.sg*g*Math.PI*D*D/4;
+    const ww=g*Math.PI*d*d/4*fillFrac;
+    const wb=Fb-wa-ww;                               // net upward
+    const a=deg(p.al), b=deg(p.be), ua=p.ua, ub=p.ub, H=p.H, L1=p.L1, L2=p.L2, L3=p.L3, L4=p.L4;
+    const eaa=Math.exp(ua*a), eba=Math.exp(ub*a), ebb=Math.exp(ub*b);
+    const TA=eaa*ua*wa*(L1+L2+L3+L4);
+    const TB=eba*(TA+ub*Math.abs(wb)*L2+wb*H-ua*wa*L2*eaa);
+    const TC=TB+ub*Math.abs(wb)*L3-eba*(ua*wa*L3*eaa);
+    const TD=ebb*(TC+ub*Math.abs(wb)*L4-wb*H-eba*(ua*wa*L4*eaa));
+    const Dh=D*p.hr, dT=p.dp*Math.PI/8*(Dh*Dh-D*D);
+    const T=[{n:"A 入孔端",v:TA,d:0},{n:"B 下降段底",v:TB,d:dT},{n:"C 上升段起點",v:TC,d:dT},{n:"D 鑽機端",v:TD,d:dT}];
+    let Tmax=-Infinity, im=0; T.forEach((o,i)=>{o.t=o.v+o.d; if(o.t>Tmax){Tmax=o.t;im=i}});
+    const SPS=p.sig*1000*Math.PI*D*D*(1/p.DR-1/(p.DR*p.DR));
+    // geometry for drawing (x horizontal, z depth)
+    const path=[]; const bez=(P0,P1,P2)=>{for(let i=0;i<=20;i++){const s=i/20;path.push([(1-s)*(1-s)*P0[0]+2*(1-s)*s*P1[0]+s*s*P2[0],(1-s)*(1-s)*P0[1]+2*(1-s)*s*P1[1]+s*s*P2[1]])}};
+    bez([0,0],[L2/2,H],[L2,H]); path.push([L2+L3,H]); bez([L2+L3,H],[L2+L3+L4/2,H],[L2+L3+L4,0]);
+    const kp=[[0,0],[L2,H],[L2+L3,H],[L2+L3+L4,0]].map((q,i)=>({x:q[0],z:q[1],t:T[i].t,lab:"ABCD"[i]}));
+    return {D,t,d,Ap,wa,Fb,ww,w:wb,dT,Dh,T,Tmax,im,cap:SPS,util:Tmax/SPS,Ltot:L1+L2+L3+L4,path,kp,span:L2+L3+L4,depth:H,
+            a,b,eaa,eba,ebb,TA,TB,TC,TD,fillFrac};
+  }
+
+  /* ---------- Steel · PRCI ---------- */
+  function XY(L,j){
+    const U=L/j;
+    if(U<0.05){ return {X:L*L*L/(48*j*j), Y:5*Math.pow(L,4)/(384*j*j)} }
+    const h=U/2;
+    return {X:L/4-(j/2)*Math.tanh(h), Y:L*L/8-j*j*(1-1/Math.cosh(h))};
+  }
+  function calcSteel(p,fillFrac){
+    const D=p.Ds/1000, t=p.ts/1000, d=D-2*t, g=9.81;
+    const As=Math.PI/4*(D*D-d*d);
+    const I=Math.PI/64*(Math.pow(D,4)-Math.pow(d,4));
+    const E=p.Es*1000;                               // kPa
+    const EI=E*I;                                    // kN·m²
+    const wair=p.gs*As+p.wc;                         // kN/m
+    const Fb=p.sg*g*Math.PI*D*D/4;
+    const ww=g*Math.PI*d*d/4*fillFrac;
+    const W=wair+ww-Fb;                              // effective, downward +
+    const R=p.R, a=deg(p.al), b=deg(p.be), ub=p.ub, tau=p.tau/1000; // kN/m²
+    let dzA=R*(1-Math.cos(a)), dzD=R*(1-Math.cos(b));
+    const LtA=Math.max(0,(p.H-dzA)/Math.sin(a)), LtD=Math.max(0,(p.H-dzD)/Math.sin(b));
+    const segs=[
+      {n:"A 側直線段",c:false,L:LtA,th:a,dz:-LtA*Math.sin(a)},
+      {n:"A 側凹彎",c:true,L:R*a,phi:a,th:a/2,dz:-dzA},
+      {n:"水平段",c:false,L:p.L3,th:0,dz:0},
+      {n:"D 側凸彎",c:true,L:R*b,phi:b,th:b/2,dz:dzD},
+      {n:"D 側直線段",c:false,L:LtD,th:b,dz:LtD*Math.sin(b)}
+    ];
+    const depth=LtA*Math.sin(a)+dzA;
+    let T=p.uas*wair*p.L1; const T0=T;
+    const rows=[{n:"A 入孔端（含地表段）",L:p.L1,N:null,fr:T0,dr:0,gr:0,t:T0}];
+    segs.forEach(s=>{
+      const drag=Math.PI*D*s.L*tau, grav=W*s.dz;
+      let fr, N=null, T2, ex={};
+      if(!s.c){ fr=ub*Math.abs(W*Math.cos(s.th))*s.L; T2=T+fr+drag+grav; }
+      else if(s.L<=0){ fr=0; N=0; T2=T; }
+      else{
+        const h=R*(1-Math.cos(s.phi/2)); let Tm=Math.max(T,1), it=0;
+        for(let k=0;k<40;k++){
+          it=k+1;
+          const j=Math.sqrt(EI/Math.max(Tm,1e-3)); const q=XY(s.L,j);
+          N=Math.abs((Tm*h-W*Math.cos(s.th)*q.Y)/q.X);
+          fr=2*ub*N; T2=T+fr+drag+grav;
+          ex={h,Tm,j,U:s.L/j,X:q.X,Y:q.Y,it};
+          const nT=Math.max((T+T2)/2,1e-3); if(Math.abs(nT-Tm)<1e-4){Tm=nT;break} Tm=nT;
+        }
+      }
+      rows.push({n:s.n,L:s.L,N,fr,dr:drag,gr:grav,t:T2,T1:T,c:s.c,th:s.th,phi:s.phi,dz:s.dz,...ex}); T=T2;
+    });
+    let Tmax=-Infinity, im=0; rows.forEach((r,i)=>{if(r.t>Tmax){Tmax=r.t;im=i}});
+    // stress checks (MPa)
+    const Fy=p.Fy, Em=p.Es, Dt=D/t;
+    const ft=Tmax/As/1000;
+    const fb=Em*D/(2*R);
+    let Fbal, fbRule; if(Dt<=10342/Fy){Fbal=0.75*Fy;fbRule=1} else if(Dt<=20684/Fy){Fbal=(0.84-1.74*Fy*D/(Em*t))*Fy;fbRule=2} else {Fbal=(0.72-0.58*Fy*D/(Em*t))*Fy;fbRule=3}
+    const pext=(p.sg*g*depth-g*depth*fillFrac)/1000;  // MPa
+    const fh=Math.max(0,pext)*D/(2*t);
+    const Fhe=0.88*Em*Math.pow(t/D,2);
+    let Fhc, fhRule; if(Fhe<=0.55*Fy){Fhc=Fhe;fhRule=1} else if(Fhe<=1.6*Fy){Fhc=0.45*Fy+0.18*Fhe;fhRule=2} else if(Fhe<=6.2*Fy){Fhc=1.31*Fy/(1.15+Fy/Fhe);fhRule=3} else {Fhc=Fy;fhRule=4}
+    // combined at the bend with the highest tension
+    let ftB=0; rows.forEach((r,i)=>{if(i>0&&segs[i-1].c)ftB=Math.max(ftB,r.t/As/1000)});
+    const c1=ftB/(0.9*Fy)+fb/Fbal;
+    const A_=(ftB+fb-0.5*fh)*1.25/Fy, B_=1.5*fh/Fhc;
+    const c2=A_*A_+B_*B_+2*0.3*Math.abs(A_)*B_;
+    const chk=[
+      {n:"拉應力 f<sub>t</sub>",v:f1(ft)+" MPa",a:f1(0.9*Fy)+" MPa",u:ft/(0.9*Fy)},
+      {n:"彎曲應力 f<sub>b</sub>",v:f1(fb)+" MPa",a:f1(Fbal)+" MPa",u:fb/Fbal},
+      {n:"外壓環向應力 f<sub>h</sub>",v:f1(fh,2)+" MPa",a:f1(Fhc/1.5)+" MPa",u:fh/(Fhc/1.5)},
+      {n:"拉＋彎組合",v:f1(c1,3),a:"1.000",u:c1},
+      {n:"拉＋彎＋環向組合",v:f1(c2,3),a:"1.000",u:c2}
+    ];
+    const util=Math.max(...chk.map(c=>c.u));
+    const cap=0.9*Fy*As*1000;                        // kN allowable pull (tension only)
+    // geometry
+    const path=[[0,0]]; let x=0,z=0; const kp=[{x:0,z:0,t:rows[0].t,lab:"A"}];
+    segs.forEach((s,i)=>{
+      if(!s.c){ x+=s.L*Math.cos(s.th); z-=s.dz; path.push([x,z]); }
+      else{ const n=16, sx=x, sz=z;
+        for(let k=1;k<=n;k++){const f=k/n;
+          if(i===1){ // sag: angle a → 0, center above
+            const ang=a*(1-f); path.push([sx+R*(Math.sin(a)-Math.sin(ang)), sz+R*(Math.cos(ang)-Math.cos(a))]); }
+          else{ const ang=b*f; path.push([sx+R*Math.sin(ang), sz-R*(1-Math.cos(ang))]); } }
+        x=path[path.length-1][0]; z=path[path.length-1][1]; }
+      kp.push({x,z,t:rows[i+1].t,lab:"P"+(i+1)});
+    });
+    kp[kp.length-1].lab="D";
+    return {D,t,d,As,I,EI,wair,Fb,ww,w:W,R,LtA,LtD,depth,rows,Tmax,im,chk,util,cap,Fbal,fb,fh,pext,Dt,
+            Ltot:p.L1+segs.reduce((s,q)=>s+q.L,0),path,kp,span:x,geomBad:(p.H<dzA||p.H<dzD),
+            a,b,dzA,dzD,ft,ftB,Fhe,Fhc,fbRule,fhRule,A_,B_,c1,c2,fillFrac,tau};
+  }
+
+  function read(){
+    const p={}; ids.forEach(k=>{if(!["grade","sgrade"].includes(k))p[k]=num(k)});
+    if($("auto").checked){ p.L2=deg(p.al)>0?2*p.H/deg(p.al):NaN; p.L4=deg(p.be)>0?2*p.H/deg(p.be):NaN; $("L2").value=f1(p.L2); $("L4").value=f1(p.L4); }
+    $("L2").readOnly=$("L4").readOnly=$("auto").checked;
+    if($("autoR").checked){ p.R=1200*p.Ds/1000; $("R").value=f1(p.R); }
+    $("R").readOnly=$("autoR").checked;
+    return p;
+  }
+
+  function draw(r,p){
+    const W=760,Hh=260,x0=60,x1=W-60,yG=70;
+    const span=r.span>0?r.span:1, sx=(x1-x0)/span;
+    const depthPx=Math.min(120,Math.max(60,r.depth*5)), sz=r.depth>0?depthPx/r.depth:1;
+    const P=q=>[x0+q[0]*sx, yG+q[1]*sz];
+    const cs=getComputedStyle(document.documentElement), c=k=>cs.getPropertyValue(k).trim();
+    const lab=(x,y,t,an,col,w)=>`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${an||"middle"}" font-size="12" fill="${col||c("--ink")}" font-weight="${w||500}">${t}</text>`;
+    let s=`<rect x="0" y="${yG}" width="${W}" height="${Hh-yG}" fill="${c("--soil")}"/>`;
+    s+=`<line x1="0" y1="${yG}" x2="${W}" y2="${yG}" stroke="${c("--soil-ink")}" stroke-width="1.5"/>`;
+    for(let i=0;i<W;i+=14)s+=`<line x1="${i}" y1="${yG}" x2="${i-7}" y2="${yG+7}" stroke="${c("--soil-ink")}"/>`;
+    const d="M"+r.path.map(q=>P(q).map(v=>v.toFixed(1)).join(",")).join(" L");
+    s+=`<path d="${d}" fill="none" stroke="${c("--mud")}" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity=".7"/>`;
+    s+=`<path d="${d}" fill="none" stroke="${c("--steel")}" stroke-width="3.5" stroke-linejoin="round"/>`;
+    s+=`<line x1="${x0-40}" y1="${yG-4}" x2="${x0}" y2="${yG-4}" stroke="${c("--steel")}" stroke-width="3.5"/>`;
+    s+=lab(x0-40,yG-12,"管材組裝段 L₁","start",c("--muted"),400);
+    s+=`<g transform="translate(${x1},${yG})"><rect x="-4" y="-30" width="34" height="18" fill="${c("--accent")}"/><line x1="0" y1="-12" x2="-14" y2="0" stroke="${c("--accent")}" stroke-width="3"/></g>`;
+    s+=lab(x1+13,yG-36,"鑽機","middle",c("--accent"),600);
+    const xm=x0+span*sx/2;
+    s+=`<line x1="${xm}" y1="${yG}" x2="${xm}" y2="${yG+depthPx}" stroke="${c("--muted")}" stroke-dasharray="3 3"/>`;
+    s+=lab(xm+6,yG+depthPx/2+4,`H = ${f1(r.depth)} m`,"start",c("--muted"),400);
+    s+=lab((x0+x1)/2,Hh-10,`水平投影長 ${f1(span)} m · 總拖管長 ${f1(r.Ltot)} m`,"middle",c("--muted"),400);
+    const imax=r.kp.reduce((m,k,i,a)=>k.t>a[m].t?i:m,0);
+    let alt=0;
+    r.kp.forEach((k,i)=>{
+      const [x,y]=P([k.x,k.z]); const mx=i===imax;
+      s+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${mx?c("--accent"):c("--paper")}" stroke="${mx?c("--accent"):c("--ink")}" stroke-width="2"/>`;
+      const surf=k.z<0.01; const an=x<W/2?"start":"end"; const dx=an==="start"?8:-8;
+      const ty=surf?y-44:y+(alt++%2?40:22);
+      s+=lab(x+(surf?dx:0),ty,`${k.lab} ${fF(k.t)} ${uF()}`,surf?an:"middle",mx?c("--accent"):c("--ink"),mx?600:500);
+    });
+    $("prof").innerHTML=s;
+  }
+
+  /* ---------- 計算過程 ---------- */
+  const closed=new Set();
+  const v=(x,d=3)=>isFinite(x)?(+x).toFixed(d):"—";
+  const sgn=(x,d=2)=>isFinite(x)?(x<0?"− "+v(-x,d):"+ "+v(x,d)):"—";
+  const L=(f,s,r)=>`<div class="ln"><span class="f">${f}</span>${s!=null&&s!==""?` = ${s}`:""}${r!=null?` = <b>${r}</b>`:""}</div>`;
+  const C=t=>`<div class="c">${t}</div>`;
+  const subify=h=>h
+    .replace(/μ([ab])(?![a-z])/g,"μ<sub>$1</sub>")
+    .replace(/([A-Za-zγΔσ])_([A-Za-z0-9]+(?:,[A-Za-z]+)?|[\u4e00-\u9fff]+)/g,"$1<sub>$2</sub>")
+    .replace(/e\^\(([^()]*)\)/g,"e<sup>$1</sup>");
+  let stepNo=0;
+  const S=(title,result,lines)=>{const k=st.mode+"-"+(++stepNo);
+    return `<details class="step" data-k="${k}"${closed.has(k)?"":" open"}><summary><b>${String(stepNo).padStart(2,"0")}</b>${title}<em>${result||""}</em></summary><div class="eq">${lines.join("")}</div></details>`};
+  const tfNote=x=>st.unit==="tf"?` ≈ ${v(x/TF,2)} tf`:"";
+
+  function procHDPE(r,p){
+    stepNo=0; const o=[]; const D=r.D, g=9.81, gm=p.sg*g, ub=p.ub, ua=p.ua, aw=Math.abs(r.w);
+    o.push(S("管材斷面與重量",`w_a = ${v(r.wa,4)} kN/m`,[
+      L("t = D / DR",`${v(D*1000,1)} / ${v(p.DR,1)}`,v(r.t*1000,2)+" mm"),
+      L("d = D − 2t",`${v(D*1000,1)} − 2 × ${v(r.t*1000,2)}`,v(r.d*1000,2)+" mm"),
+      L("A = π/4 · (D² − d²)",`π/4 × (${v(D,4)}² − ${v(r.d,4)}²)`,v(r.Ap,5)+" m²"),
+      L("w_a = ρ · g · A",`${v(p.rho,0)} × 9.81 × ${v(r.Ap,5)} / 1000`,v(r.wa,4)+" kN/m")]));
+    o.push(S("泥漿浮力與淨浮力",`w_b = ${v(r.w,4)} kN/m`,[
+      L("γ_m = SG · γ_w",`${v(p.sg,2)} × 9.81`,v(gm,3)+" kN/m³"),
+      L("F_b = γ_m · πD²/4",`${v(gm,3)} × π × ${v(D,4)}² / 4`,v(r.Fb,4)+" kN/m"),
+      L("w_w = γ_w · πd²/4 · 灌水比例",`9.81 × π × ${v(r.d,4)}² / 4 × ${v(r.fillFrac,2)}`,v(r.ww,4)+" kN/m"),
+      L("w_b = F_b − w_a − w_w",`${v(r.Fb,4)} − ${v(r.wa,4)} − ${v(r.ww,4)}`,v(r.w,4)+" kN/m"),
+      C(r.w>0?"w_b > 0：管材在孔內上浮，沿孔頂摩擦。":"w_b < 0：管材在孔內下沉，沿孔底摩擦。")]));
+    const auto=$("auto").checked;
+    o.push(S("線形參數",`ΣL = ${v(r.Ltot,1)} m`,[
+      L("α",`${v(p.al,1)}° × π/180`,v(r.a,4)+" rad"),
+      L("β",`${v(p.be,1)}° × π/180`,v(r.b,4)+" rad"),
+      auto?L("L₂ = 2H / α",`2 × ${v(p.H,1)} / ${v(r.a,4)}`,v(p.L2,2)+" m"):L("L₂（輸入值）",null,v(p.L2,2)+" m"),
+      auto?L("L₄ = 2H / β",`2 × ${v(p.H,1)} / ${v(r.b,4)}`,v(p.L4,2)+" m"):L("L₄（輸入值）",null,v(p.L4,2)+" m"),
+      L("ΣL = L₁ + L₂ + L₃ + L₄",`${v(p.L1,1)} + ${v(p.L2,2)} + ${v(p.L3,1)} + ${v(p.L4,2)}`,v(r.Ltot,2)+" m")]));
+    o.push(S("絞盤效應係數",null,[
+      L("e^(μa·α)",`e^(${v(ua,2)} × ${v(r.a,4)})`,v(r.eaa,4)),
+      L("e^(μb·α)",`e^(${v(ub,2)} × ${v(r.a,4)})`,v(r.eba,4)),
+      L("e^(μb·β)",`e^(${v(ub,2)} × ${v(r.b,4)})`,v(r.ebb,4))]));
+    o.push(S("A 點張力（管材入孔端）",`T_A = ${v(r.TA,2)} kN`,[
+      L("T_A = e^(μaα) · μa · w_a · ΣL",`${v(r.eaa,4)} × ${v(ua,2)} × ${v(r.wa,4)} × ${v(r.Ltot,2)}`,v(r.TA,2)+" kN")]));
+    const b1=ub*aw*p.L2, b2=r.w*p.H, b3=ua*r.wa*p.L2*r.eaa;
+    o.push(S("B 點張力（A 側下降段底）",`T_B = ${v(r.TB,2)} kN`,[
+      L("μb·|w_b|·L₂",`${v(ub,2)} × ${v(aw,4)} × ${v(p.L2,2)}`,v(b1,2)+" kN"),
+      L("w_b·H",`${v(r.w,4)} × ${v(p.H,1)}`,v(b2,2)+" kN"),
+      L("μa·w_a·L₂·e^(μaα)",`${v(ua,2)} × ${v(r.wa,4)} × ${v(p.L2,2)} × ${v(r.eaa,4)}`,v(b3,2)+" kN"),
+      L("T_B = e^(μbα) · [T_A + μb|w_b|L₂ + w_b·H − μa·w_a·L₂·e^(μaα)]",`${v(r.eba,4)} × [${v(r.TA,2)} ${sgn(b1)} ${sgn(b2)} ${sgn(-b3)}]`,v(r.TB,2)+" kN")]));
+    const c1=ub*aw*p.L3, c2=r.eba*ua*r.wa*p.L3*r.eaa;
+    o.push(S("C 點張力（水平段末端）",`T_C = ${v(r.TC,2)} kN`,[
+      L("μb·|w_b|·L₃",`${v(ub,2)} × ${v(aw,4)} × ${v(p.L3,1)}`,v(c1,2)+" kN"),
+      L("e^(μbα)·μa·w_a·L₃·e^(μaα)",`${v(r.eba,4)} × ${v(ua,2)} × ${v(r.wa,4)} × ${v(p.L3,1)} × ${v(r.eaa,4)}`,v(c2,2)+" kN"),
+      L("T_C = T_B + μb|w_b|L₃ − e^(μbα)(μa·w_a·L₃·e^(μaα))",`${v(r.TB,2)} ${sgn(c1)} ${sgn(-c2)}`,v(r.TC,2)+" kN")]));
+    const d1=ub*aw*p.L4, d2=r.w*p.H, d3=r.eba*ua*r.wa*p.L4*r.eaa;
+    o.push(S("D 點張力（鑽機端）",`T_D = ${v(r.TD,2)} kN`,[
+      L("μb·|w_b|·L₄",`${v(ub,2)} × ${v(aw,4)} × ${v(p.L4,2)}`,v(d1,2)+" kN"),
+      L("e^(μbα)·μa·w_a·L₄·e^(μaα)",`${v(r.eba,4)} × ${v(ua,2)} × ${v(r.wa,4)} × ${v(p.L4,2)} × ${v(r.eaa,4)}`,v(d3,2)+" kN"),
+      L("T_D = e^(μbβ) · [T_C + μb|w_b|L₄ − w_b·H − e^(μbα)(μa·w_a·L₄·e^(μaα))]",`${v(r.ebb,4)} × [${v(r.TC,2)} ${sgn(d1)} ${sgn(-d2)} ${sgn(-d3)}]`,v(r.TD,2)+" kN")]));
+    o.push(S("流體拖曳 ΔT",`ΔT = ${v(r.dT,2)} kN`,[
+      L("D_h = (D_h/D) · D",`${v(p.hr,2)} × ${v(D,4)}`,v(r.Dh,4)+" m"),
+      L("ΔT = ΔP · (π/8) · (D_h² − D²)",`${v(p.dp,0)} × π/8 × (${v(r.Dh,4)}² − ${v(D,4)}²)`,v(r.dT,2)+" kN"),
+      C("ΔT 加於孔內的 B、C、D 點。")]));
+    const T=r.T;
+    o.push(S("各點合計與最大回拖力",`T_max = ${v(r.Tmax,2)} kN`,[
+      L("T_A",null,v(T[0].t,2)+" kN"),
+      L("T_B + ΔT",`${v(T[1].v,2)} + ${v(r.dT,2)}`,v(T[1].t,2)+" kN"),
+      L("T_C + ΔT",`${v(T[2].v,2)} + ${v(r.dT,2)}`,v(T[2].t,2)+" kN"),
+      L("T_D + ΔT",`${v(T[3].v,2)} + ${v(r.dT,2)}`,v(T[3].t,2)+" kN"),
+      L("T_max",`max(T_A, T_B, T_C, T_D)`,v(r.Tmax,2)+" kN"+tfNote(r.Tmax))]));
+    const k=1/p.DR-1/(p.DR*p.DR);
+    o.push(S("安全回拖強度與使用率",`${v(r.util*100,1)} %`,[
+      L("SPS = σ_a · πD² · (1/DR − 1/DR²)",`${v(p.sig,2)} × 1000 × π × ${v(D,4)}² × ${v(k,5)}`,v(r.cap,2)+" kN"+tfNote(r.cap)),
+      L("使用率 = T_max / SPS",`${v(r.Tmax,2)} / ${v(r.cap,2)}`,v(r.util,3)+(r.util<=1?"　≤ 1.0　OK":"　> 1.0　NG"))]));
+    o.push(S("鑽機回拖能力建議",`≥ ${v(r.Tmax*p.rig,0)} kN`,[
+      L("T_rig ≥ 倍數 × T_max",`${v(p.rig,2)} × ${v(r.Tmax,2)}`,v(r.Tmax*p.rig,1)+" kN"+tfNote(r.Tmax*p.rig))]));
+    return o.join("");
+  }
+
+  function procSteel(r,p){
+    stepNo=0; const o=[]; const D=r.D, t=r.t, g=9.81, ub=p.ub, W=r.w, aW=Math.abs(W);
+    o.push(S("鋼管斷面性質",`EI = ${v(r.EI,0)} kN·m²`,[
+      L("d = D − 2t",`${v(D*1000,1)} − 2 × ${v(t*1000,2)}`,v(r.d*1000,2)+" mm"),
+      L("A = π/4 · (D² − d²)",`π/4 × (${v(D,4)}² − ${v(r.d,4)}²)`,v(r.As,5)+" m²"),
+      L("I = π/64 · (D⁴ − d⁴)",`π/64 × (${v(D,4)}⁴ − ${v(r.d,4)}⁴)`,v(r.I,7)+" m⁴"),
+      L("EI",`${v(p.Es,0)} × 1000 × ${v(r.I,7)}`,v(r.EI,0)+" kN·m²")]));
+    o.push(S("有效重量",`W = ${v(W,4)} kN/m`,[
+      L("w_s = γ_s · A + 被覆",`${v(p.gs,1)} × ${v(r.As,5)} + ${v(p.wc,3)}`,v(r.wair,4)+" kN/m"),
+      L("F_b = γ_m · πD²/4",`${v(p.sg,2)} × 9.81 × π × ${v(D,4)}² / 4`,v(r.Fb,4)+" kN/m"),
+      L("w_w = γ_w · πd²/4 · 灌水比例",`9.81 × π × ${v(r.d,4)}² / 4 × ${v(r.fillFrac,2)}`,v(r.ww,4)+" kN/m"),
+      L("W = w_s + w_w − F_b",`${v(r.wair,4)} + ${v(r.ww,4)} − ${v(r.Fb,4)}`,v(W,4)+" kN/m"),
+      C(W<0?"W < 0：鋼管在孔內上浮，沿孔頂摩擦。":"W > 0：鋼管在孔內下沉，沿孔底摩擦。")]));
+    const auto=$("autoR").checked;
+    o.push(S("線形幾何",`H_實際 = ${v(r.depth,2)} m`,[
+      auto?L("R = 1200D",`1200 × ${v(D,4)}`,v(r.R,1)+" m"):L("R（輸入值）",null,v(r.R,1)+" m"),
+      L("Δz_A = R · (1 − cosα)",`${v(r.R,1)} × (1 − cos${v(p.al,1)}°)`,v(r.dzA,3)+" m"),
+      L("Δz_D = R · (1 − cosβ)",`${v(r.R,1)} × (1 − cos${v(p.be,1)}°)`,v(r.dzD,3)+" m"),
+      L("L_tA = (H − Δz_A) / sinα",`(${v(p.H,1)} − ${v(r.dzA,3)}) / sin${v(p.al,1)}°`,v(r.LtA,2)+" m"),
+      L("L_tD = (H − Δz_D) / sinβ",`(${v(p.H,1)} − ${v(r.dzD,3)}) / sin${v(p.be,1)}°`,v(r.LtD,2)+" m"),
+      L("凹彎弧長 = R · α",`${v(r.R,1)} × ${v(r.a,4)}`,v(r.R*r.a,2)+" m"),
+      L("凸彎弧長 = R · β",`${v(r.R,1)} × ${v(r.b,4)}`,v(r.R*r.b,2)+" m")].concat(r.geomBad?[C("H 小於曲線段所需深度，直線段長度取 0。")]:[])));
+    const r0=r.rows[0];
+    o.push(S("地表段（管材組裝段）",`T₀ = ${v(r0.t,2)} kN`,[
+      L("T₀ = μa · w_s · L₁",`${v(p.uas,2)} × ${v(r.wair,4)} × ${v(p.L1,1)}`,v(r0.t,2)+" kN")]));
+    r.rows.slice(1).forEach((q,i)=>{
+      const lines=[];
+      if(!q.c){
+        lines.push(L("摩擦 = μb · |W·cosθ| · L",`${v(ub,2)} × |${v(W,4)} × cos${v(q.th*180/Math.PI,2)}°| × ${v(q.L,2)}`,v(q.fr,2)+" kN"));
+      }else if(q.L>0){
+        lines.push(
+          L("h = R · (1 − cos(φ/2))",`${v(r.R,1)} × (1 − cos${v(q.phi*90/Math.PI,3)}°)`,v(q.h,4)+" m"),
+          L("T_m = (T₁ + T₂)/2",`迭代 ${q.it} 次收斂`,v(q.Tm,2)+" kN"),
+          L("j = √(EI / T_m)",`√(${v(r.EI,0)} / ${v(q.Tm,2)})`,v(q.j,3)+" m"),
+          L("U = L / j",`${v(q.L,2)} / ${v(q.j,3)}`,v(q.U,4)),
+          L("X = L/4 − (j/2)·tanh(U/2)",`${v(q.L,2)}/4 − ${v(q.j,3)}/2 × tanh(${v(q.U/2,4)})`,v(q.X,4)+" m"),
+          L("Y = L²/8 − j²·(1 − sech(U/2))",`${v(q.L,2)}²/8 − ${v(q.j,3)}² × (1 − sech(${v(q.U/2,4)}))`,v(q.Y,3)+" m²"),
+          L("N = |T_m·h − W·cosθ·Y| / X",`|${v(q.Tm,2)} × ${v(q.h,4)} − (${v(W,4)}) × cos${v(q.th*180/Math.PI,2)}° × ${v(q.Y,3)}| / ${v(q.X,4)}`,v(q.N,2)+" kN"),
+          L("摩擦 = 2 · μb · N",`2 × ${v(ub,2)} × ${v(q.N,2)}`,v(q.fr,2)+" kN"));
+      }
+      lines.push(
+        L("拖曳 = π · D · L · τ",`π × ${v(D,4)} × ${v(q.L,2)} × ${v(r.tau,3)}`,v(q.dr,2)+" kN"),
+        L("重力 = W · Δz",`${v(W,4)} × ${v(q.dz,3)}`,v(q.gr,2)+" kN"),
+        L("T₂ = T₁ + 摩擦 + 拖曳 + 重力",`${v(q.T1,2)} ${sgn(q.fr)} ${sgn(q.dr)} ${sgn(q.gr)}`,v(q.t,2)+" kN"));
+      o.push(S(q.n+(q.c?"（三點樑模型）":"")+`，L = ${v(q.L,1)} m`,`T = ${v(q.t,2)} kN`,lines));
+    });
+    o.push(S("最大回拖力",`T_max = ${v(r.Tmax,2)} kN`,[
+      L("T_max",`max(各分段累計張力)`,v(r.Tmax,2)+" kN"+tfNote(r.Tmax))]));
+    const Fy=p.Fy, E=p.Es;
+    const fbF=[null,"F_b = 0.75·SMYS（D/t ≤ 10,342/SMYS）","F_b = [0.84 − 1.74·SMYS·D/(E·t)]·SMYS（10,342/SMYS &lt; D/t ≤ 20,684/SMYS）","F_b = [0.72 − 0.58·SMYS·D/(E·t)]·SMYS（D/t > 20,684/SMYS）"][r.fbRule];
+    const fbS=[null,`0.75 × ${v(Fy,0)}`,`[0.84 − 1.74 × ${v(Fy,0)} × ${v(r.Dt,2)} / ${v(E,0)}] × ${v(Fy,0)}`,`[0.72 − 0.58 × ${v(Fy,0)} × ${v(r.Dt,2)} / ${v(E,0)}] × ${v(Fy,0)}`][r.fbRule];
+    const fhF=[null,"F_hc = F_he（F_he ≤ 0.55·SMYS）","F_hc = 0.45·SMYS + 0.18·F_he（0.55 &lt; F_he/SMYS ≤ 1.6）","F_hc = 1.31·SMYS / (1.15 + SMYS/F_he)（1.6 &lt; F_he/SMYS ≤ 6.2）","F_hc = SMYS（F_he/SMYS > 6.2）"][r.fhRule];
+    const fhS=[null,null,`0.45 × ${v(Fy,0)} + 0.18 × ${v(r.Fhe,1)}`,`1.31 × ${v(Fy,0)} / (1.15 + ${v(Fy,0)} / ${v(r.Fhe,1)})`,null][r.fhRule];
+    o.push(S("拉應力檢核",`${v(r.ft/(0.9*Fy),3)}`,[
+      L("f_t = T_max / A",`${v(r.Tmax,2)} / ${v(r.As,5)} / 1000`,v(r.ft,2)+" MPa"),
+      L("f_t / (0.9·SMYS)",`${v(r.ft,2)} / (0.9 × ${v(Fy,0)})`,v(r.ft/(0.9*Fy),3))]));
+    o.push(S("彎曲應力檢核",`${v(r.fb/r.Fbal,3)}`,[
+      L("D/t",`${v(D*1000,1)} / ${v(t*1000,2)}`,v(r.Dt,2)),
+      L("f_b = E · D / (2R)",`${v(E,0)} × ${v(D,4)} / (2 × ${v(r.R,1)})`,v(r.fb,2)+" MPa"),
+      L(fbF,fbS,v(r.Fbal,2)+" MPa"),
+      L("f_b / F_b",`${v(r.fb,2)} / ${v(r.Fbal,2)}`,v(r.fb/r.Fbal,3))]));
+    o.push(S("外壓環向應力檢核",`${v(r.fh/(r.Fhc/1.5),3)}`,[
+      L("Δp = (γ_m − γ_w·灌水比例) · H_實際",`(${v(p.sg*g,3)} − 9.81 × ${v(r.fillFrac,2)}) × ${v(r.depth,2)}`,v(r.pext*1000,1)+" kPa"),
+      L("f_h = Δp · D / (2t)",`${v(r.pext,4)} × ${v(D,4)} / (2 × ${v(t,4)})`,v(r.fh,3)+" MPa"),
+      L("F_he = 0.88 · E · (t/D)²",`0.88 × ${v(E,0)} × (${v(t,4)}/${v(D,4)})²`,v(r.Fhe,1)+" MPa"),
+      L(fhF,fhS,v(r.Fhc,1)+" MPa"),
+      L("f_h / (F_hc/1.5)",`${v(r.fh,3)} / (${v(r.Fhc,1)} / 1.5)`,v(r.fh/(r.Fhc/1.5),3))]));
+    o.push(S("拉＋彎組合檢核",`${v(r.c1,3)}`,[
+      C("f_t 取曲線段末端最大張力計算。"),
+      L("f_t,bend",null,v(r.ftB,2)+" MPa"),
+      L("f_t/(0.9·SMYS) + f_b/F_b",`${v(r.ftB,2)}/${v(0.9*Fy,1)} + ${v(r.fb,2)}/${v(r.Fbal,2)}`,v(r.c1,3)+(r.c1<=1?"　≤ 1.0　OK":"　> 1.0　NG"))]));
+    o.push(S("拉＋彎＋環向組合檢核",`${v(r.c2,3)}`,[
+      L("A = (f_t + f_b − 0.5·f_h) · 1.25 / SMYS",`(${v(r.ftB,2)} + ${v(r.fb,2)} − 0.5 × ${v(r.fh,3)}) × 1.25 / ${v(Fy,0)}`,v(r.A_,4)),
+      L("B = 1.5 · f_h / F_hc",`1.5 × ${v(r.fh,3)} / ${v(r.Fhc,1)}`,v(r.B_,4)),
+      L("A² + B² + 2ν·|A|·B",`${v(r.A_,4)}² + ${v(r.B_,4)}² + 2 × 0.3 × ${v(Math.abs(r.A_),4)} × ${v(r.B_,4)}`,v(r.c2,3)+(r.c2<=1?"　≤ 1.0　OK":"　> 1.0　NG"))]));
+    o.push(S("鑽機回拖能力建議",`≥ ${v(r.Tmax*p.rig,0)} kN`,[
+      L("T_rig ≥ 倍數 × T_max",`${v(p.rig,2)} × ${v(r.Tmax,2)}`,v(r.Tmax*p.rig,1)+" kN"+tfNote(r.Tmax*p.rig))]));
+    return o.join("");
+  }
+
+  function setMode(){
+    document.querySelectorAll("[data-mode]").forEach(el=>el.hidden=el.dataset.mode!==st.mode);
+    $("mHDPE").setAttribute("aria-pressed",st.mode==="hdpe"); $("mSteel").setAttribute("aria-pressed",st.mode==="steel");
+    $("uKN").setAttribute("aria-pressed",st.unit==="kN"); $("uTF").setAttribute("aria-pressed",st.unit==="tf");
+    $("stdTag").textContent=st.mode==="hdpe"?"ASTM F1962":"PRCI (Huey et al., 1996)";
+    $("mTag").textContent=st.mode==="hdpe"?"HDPE · ASTM F1962":"鋼管 · PRCI";
+    $("capLbl").textContent=st.mode==="hdpe"?"安全回拖強度 SPS":"容許拉力 0.9·SMYS·A";
+    $("meterR").textContent=st.mode==="hdpe"?"SPS":"控制檢核 = 1.0";
+    $("tTitle").textContent=st.mode==="hdpe"?"各點張力":"分段張力";
+  }
+
+  function run(){
+    const p=read();
+    try{const s={mode:st.mode,unit:st.unit}; ids.forEach(k=>s[k]=$(k).value); checks.forEach(k=>s[k]=$(k).checked); localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}
+    const fill=Math.min(1,Math.max(0,(p.fill||0)/100));
+    const steel=st.mode==="steel";
+    const calc=steel?calcSteel:calcHDPE;
+    const r=calc(p,fill);
+    const warn=[];
+    if(!isFinite(r.Tmax)||r.D<=0||(!steel&&p.DR<=2)||(steel&&r.d<=0)){
+      $("oTmax").innerHTML='—';$("oWarn").innerHTML="<li>請確認輸入值（管徑、壁厚或 DR、角度需大於 0）。</li>";return}
+    $("oTmax").innerHTML=fF(r.Tmax)+`<span>${uF()}</span>`;
+    $("oSPS").textContent=fF(r.cap)+" "+uF();
+    const rig=r.Tmax*p.rig;
+    $("oRig").textContent="≥ "+fF(rig,st.unit==="tf"?1:0)+" "+uF()+(st.unit==="tf"?`（≈ ${f1(rig,0)} kN）`:`（≈ ${f1(rig/TF,1)} tf）`);
+    const u=r.util, pill=$("oPill"), bar=$("oBar");
+    pill.className="pill "+cls(u);
+    pill.textContent=u<=1?(u<=0.8?"OK":"OK・接近上限"):"NG・超過容許值";
+    bar.className=u<=0.8?"":u<=1?"warn":"bad"; bar.style.width=Math.min(100,u*100)+"%";
+    $("oUtil").textContent=(steel?"控制比值 ":"使用率 ")+f1(u*100)+"%";
+
+    if((steel?r.rows:r.T).some(o=>o.t<0))warn.push("有點位張力為負值，代表參數組合超出公式適用範圍（例如壓艙過重或角度過小），請檢查輸入。");
+    if(!steel&&r.w<0)warn.push("管材在孔內下沉（淨浮力 < 0），貼孔底拖行，請留意孔底鑽屑沉積。");
+    if(steel&&r.w>0)warn.push("鋼管在孔內有效重量向下，貼孔底拖行，請留意孔底鑽屑沉積。");
+    if(p.al>20||p.be>20)warn.push("入／出土角偏大，超出一般穿越範圍。");
+    if(!steel){
+      const Rest=Math.min(p.L2*p.L2/(2*p.H),p.L4*p.L4/(2*p.H)), Rreq=25*r.D;
+      if(Rest<Rreq)warn.push(`曲線段估計曲率半徑約 ${f1(Rest,0)} m，小於 HDPE 容許彎曲半徑參考值（約 25D = ${f1(Rreq,0)} m）。`);
+    }else{
+      if(r.geomBad)warn.push(`設計深度 H 小於曲線段所需深度 R(1−cosα) 或 R(1−cosβ)，直線段長度已取 0，實際深度為 ${f1(r.depth)} m。請增加 H、減小角度或曲率半徑。`);
+      if(p.R<1200*r.D)warn.push(`曲率半徑 R = ${f1(p.R,0)} m 小於 1200D（${f1(1200*r.D,0)} m）。`);
+      if(r.Dt>100)warn.push(`D/t = ${f1(r.Dt)}，管壁偏薄，請特別注意外壓挫屈。`);
+    }
+    if(r.Ltot>1500)warn.push("穿越長度超過 1,500 m，簡化計算誤差可能變大，建議以更細分段複核。");
+    $("oWarn").innerHTML=subify(warn.map(w=>"<li>"+w.replace(/</g,"&lt;")+"</li>").join(""));
+
+    if(!steel){
+      $("oTh").innerHTML=`<tr><th>位置</th><th>摩擦+重力</th><th>+ΔT</th><th>合計 ${uF()}</th></tr>`;
+      $("oT").innerHTML=r.T.map((o,i)=>`<tr class="${i===r.im?"max":""}"><td>${o.n}</td><td>${fF(o.v)}</td><td>${o.d?fF(o.d,2):"—"}</td><td>${fF(o.t)}</td></tr>`).join("");
+      const mid=[["壁厚 t",f1(r.t*1000)+" mm"],["內徑 d",f1(r.d*1000)+" mm"],["管斷面積",f1(r.Ap*1e4,1)+" cm²"],
+        ["空管重 w<sub>a</sub>",fF(r.wa,3)+" "+uW()],["泥漿浮力",fF(r.Fb,3)+" "+uW()],["管內水重",fF(r.ww,3)+" "+uW()],
+        ["淨浮力 w<sub>b</sub>",fF(r.w,3)+" "+uW()],["擴孔孔徑 D<sub>h</sub>",f1(r.Dh*1000,0)+" mm"],
+        ["流體拖曳 ΔT",fF(r.dT,2)+" "+uF()],["總拖管長",f1(r.Ltot)+" m"]];
+      $("oMid").innerHTML=mid.map(m=>`<tr><td>${m[0]}</td><td>${m[1]}</td></tr>`).join("");
+    }else{
+      $("oTh").innerHTML=`<tr><th>分段</th><th>長度 m</th><th>N</th><th>摩擦</th><th>拖曳</th><th>重力</th><th>累計 ${uF()}</th></tr>`;
+      $("oT").innerHTML=r.rows.map((o,i)=>`<tr class="${i===r.im?"max":""}"><td>${o.n}</td><td>${f1(o.L)}</td><td>${o.N==null?"—":fF(o.N)}</td><td>${fF(o.fr)}</td><td>${fF(o.dr)}</td><td>${fF(o.gr)}</td><td>${fF(o.t)}</td></tr>`).join("");
+      const mid=[["內徑 d",f1(r.d*1000)+" mm"],["D/t",f1(r.Dt)],["鋼斷面積 A",f1(r.As*1e4,1)+" cm²"],["慣性矩 I",f1(r.I*1e8,0)+" cm⁴"],
+        ["管重（含被覆）",fF(r.wair,3)+" "+uW()],["泥漿浮力",fF(r.Fb,3)+" "+uW()],["管內水重",fF(r.ww,3)+" "+uW()],
+        ["有效重量 W",fF(r.w,3)+" "+uW()],["曲率半徑 R",f1(r.R,0)+" m"],["A 側／D 側直線段",f1(r.LtA)+" / "+f1(r.LtD)+" m"],
+        ["最深處外壓",f1(r.pext*1000,0)+" kPa"],["總拖管長",f1(r.Ltot)+" m"]];
+      $("oMid").innerHTML=mid.map(m=>`<tr><td>${m[0]}</td><td>${m[1]}</td></tr>`).join("");
+      $("oChk").innerHTML=r.chk.map(c=>`<tr><td>${c.n}</td><td>${c.v}</td><td>${c.a}</td><td class="${cls(c.u)}">${f1(c.u,3)}</td></tr>`).join("");
+    }
+    $("cmpW").innerHTML=(steel?"有效重量 W ":"淨浮力 w<sub>b</sub> ")+uW();
+    $("cmpT").innerHTML="T<sub>max</sub> "+uF();
+    const cmp=[0,0.5,1].map(fr=>({fr,q:calc(p,fr)}));
+    $("oCmp").innerHTML=cmp.map(({fr,q})=>`<tr class="${Math.abs(fr-fill)<1e-6?"max":""}"><td>${fr===0?"空管":fr===1?"全滿水":"灌水 50%"}</td><td>${fF(q.w,3)}</td><td>${fF(q.Tmax)}</td><td>${f1(q.util*100)}%</td></tr>`).join("");
+    $("procTag").textContent=steel?"PRCI · 鋼管":"ASTM F1962 · HDPE";
+    $("oProc").innerHTML=subify(steel?procSteel(r,p):procHDPE(r,p));
+    draw(r,p);
+  }
+  const PKEY="hdd-pullback-proc";
+  try{const s=JSON.parse(localStorage.getItem(PKEY)||"null"); if(s){$("procBox").open=!!s.open; (s.closed||[]).forEach(k=>closed.add(k));}}catch(e){}
+  const saveP=()=>{try{localStorage.setItem(PKEY,JSON.stringify({open:$("procBox").open,closed:[...closed]}))}catch(e){}};
+  $("procBox").addEventListener("toggle",e=>{if(e.target===$("procBox"))saveP()});
+  $("oProc").addEventListener("toggle",e=>{const k=e.target.dataset&&e.target.dataset.k; if(!k)return; if(e.target.open)closed.delete(k); else closed.add(k); saveP()},true);
+
+
+  /* ---------- 外觀 ---------- */
+  const TKEY="hdd-pullback-theme";
+  function applyTheme(t){
+    const root=document.documentElement;
+    if(t==="light"||t==="dark")root.setAttribute("data-theme",t); else root.removeAttribute("data-theme");
+    $("tLight").setAttribute("aria-pressed",t==="light"); $("tDark").setAttribute("aria-pressed",t==="dark"); $("tSys").setAttribute("aria-pressed",t!=="light"&&t!=="dark");
+    try{localStorage.setItem(TKEY,t)}catch(e){}
+  }
+  let theme0="system"; try{theme0=localStorage.getItem(TKEY)||"system"}catch(e){}
+  applyTheme(theme0);
+  $("tLight").addEventListener("click",()=>applyTheme("light"));
+  $("tDark").addEventListener("click",()=>applyTheme("dark"));
+  $("tSys").addEventListener("click",()=>applyTheme("system"));
+
+  /* ---------- 案例儲存與匯入 ---------- */
+  const CKEY="hdd-pullback-cases";
+  const esc=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const msg=(t,k)=>{const m=$("caseMsg"); m.textContent=t; m.className="note"+(k?" "+k:"")};
+  const getCases=()=>{try{const a=JSON.parse(localStorage.getItem(CKEY)||"[]");return Array.isArray(a)?a:[]}catch(e){return []}};
+  const putCases=a=>{try{localStorage.setItem(CKEY,JSON.stringify(a));return true}catch(e){return false}};
+  function snapshot(){
+    const values={}; ids.forEach(k=>values[k]=$(k).value);
+    const ck={}; checks.forEach(k=>ck[k]=$(k).checked);
+    return {app:"hdd-pullback",version:3,name:$("caseName").value.trim(),mode:st.mode,unit:st.unit,values,checks:ck,savedAt:new Date().toISOString()};
+  }
+  function applySnap(s){
+    if(!s||s.app!=="hdd-pullback"||typeof s.values!=="object")throw new Error("format");
+    ids.forEach(k=>{if(s.values[k]!=null)$(k).value=String(s.values[k])});
+    if(s.checks)checks.forEach(k=>{if(s.checks[k]!=null)$(k).checked=!!s.checks[k]});
+    if(s.mode==="hdpe"||s.mode==="steel")st.mode=s.mode;
+    if(s.unit==="kN"||s.unit==="tf")st.unit=s.unit;
+    $("caseName").value=s.name||"";
+    setMode(); run();
+  }
+  function refreshList(sel){
+    const a=getCases();
+    $("caseList").innerHTML=a.length?a.map((c,i)=>`<option value="${i}">${esc(c.name)}（${c.mode==="steel"?"鋼管":"HDPE"}・${esc((c.savedAt||"").slice(0,10))}）</option>`).join(""):`<option value="">尚無儲存的案例</option>`;
+    if(sel!=null&&a.length)$("caseList").value=String(sel);
+    $("bLoad").disabled=$("bDel").disabled=!a.length;
+  }
+  refreshList();
+  $("bSave").addEventListener("click",()=>{
+    const s=snapshot(); if(!s.name){msg("請先輸入案例名稱。","err");$("caseName").focus();return}
+    const a=getCases(); const i=a.findIndex(c=>c.name===s.name);
+    if(i>=0)a[i]=s; else a.unshift(s);
+    if(!putCases(a)){msg("這個瀏覽器無法儲存資料，請改用「匯出案例檔」。","err");return}
+    refreshList(i>=0?i:0); msg(`已${i>=0?"更新":"儲存"}「${s.name}」。`,"okm");
+  });
+  $("bLoad").addEventListener("click",()=>{
+    const a=getCases(), c=a[+$("caseList").value]; if(!c)return;
+    try{applySnap(c); msg(`已載入「${c.name}」。`,"okm")}catch(e){msg("這筆案例資料無法讀取。","err")}
+  });
+  let armT=null;
+  $("bDel").addEventListener("click",()=>{
+    const b=$("bDel"), a=getCases(), i=+$("caseList").value; if(!a[i])return;
+    if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="確認刪除？";clearTimeout(armT);
+      armT=setTimeout(()=>{b.classList.remove("armed");b.textContent="刪除"},3000);return}
+    clearTimeout(armT); b.classList.remove("armed"); b.textContent="刪除";
+    const n=a[i].name; a.splice(i,1); putCases(a); refreshList(0); msg(`已刪除「${n}」。`,"okm");
+  });
+  $("bImport").addEventListener("click",()=>$("fileIn").click());
+  $("fileIn").addEventListener("change",()=>{
+    const f=$("fileIn").files[0]; if(!f)return;
+    const rd=new FileReader();
+    rd.onload=()=>{try{applySnap(JSON.parse(rd.result)); msg(`已匯入「${$("caseName").value||f.name}」，需要時可按「儲存」存進瀏覽器。`,"okm")}
+      catch(e){msg("檔案格式不符，請選擇由本工具匯出的 .json 案例檔。","err")} $("fileIn").value=""};
+    rd.onerror=()=>{msg("無法讀取這個檔案。","err");$("fileIn").value=""};
+    rd.readAsText(f);
+  });
+
+  /* ---------- 下載（匯出 JSON / Word） ---------- */
+  let dl=null;
+  const standalone=!(window.claude&&window.claude.use);   // 一般網站（例如 GitHub Pages）
+  if(standalone){$("bExport").disabled=false;$("bWord").disabled=false}
+  else (async()=>{
+    try{dl=await window.claude.use("downloads")}catch(e){dl=null}
+    if(dl){$("bExport").disabled=false;$("bWord").disabled=false}
+    else msg("目前的檢視無法下載檔案，匯出功能請在 claude.ai 開啟此頁使用。儲存與匯入仍可使用。","err");
+  })();
+  function plainDownload(filename,data){
+    const blob=data instanceof Blob?data:new Blob([data],{type:filename.endsWith(".json")?"application/json":"application/octet-stream"});
+    const url=URL.createObjectURL(blob), a=document.createElement("a");
+    a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+  }
+  const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+  const baseName=()=>($("caseName").value.trim()||("HDD回拖力_"+(st.mode==="steel"?"鋼管":"HDPE"))).replace(/[\\/:*?"<>|]/g,"_");
+  async function save(filename,data,okText){
+    if(standalone){try{plainDownload(filename,data);msg(okText,"okm")}catch(e){msg("下載失敗："+(e&&e.message||e),"err")}return}
+    if(!dl){msg("目前的檢視無法下載檔案。","err");return}
+    try{await dl.save({filename,data}); msg(okText,"okm")}
+    catch(e){const c=e&&e.code;
+      if(c==="declined")msg("已取消下載。");
+      else if(c==="rate_limited")msg("已有一個下載確認視窗開著，請先完成它。","err");
+      else msg("下載失敗："+((e&&e.message)||c||"未知原因"),"err");}
+  }
+  $("bExport").addEventListener("click",()=>save(baseName()+".json",JSON.stringify(snapshot(),null,2),"案例檔已匯出。"));
+
+  /* ---------- Word 計算書 ---------- */
+  const xe=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const decode=t=>t.replace(/&nbsp;/g," ").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&amp;/g,"&");
+  function wr(t,f){
+    if(!t)return "";
+    let p="";
+    if(f.mono)p+='<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="Microsoft JhengHei" w:cs="Consolas"/>';
+    if(f.b)p+="<w:b/>";
+    if(f.color)p+=`<w:color w:val="${f.color}"/>`;
+    if(f.sz)p+=`<w:sz w:val="${f.sz}"/><w:szCs w:val="${f.sz}"/>`;
+    if(f.sub)p+='<w:vertAlign w:val="subscript"/>'; else if(f.sup)p+='<w:vertAlign w:val="superscript"/>';
+    return `<w:r>${p?`<w:rPr>${p}</w:rPr>`:""}<w:t xml:space="preserve">${xe(t)}</w:t></w:r>`;
+  }
+  function runs(html,base){
+    const stack=[Object.assign({},base||{})]; let out="";
+    String(html).split(/(<[^>]+>)/).forEach(tok=>{
+      if(!tok)return;
+      if(tok[0]==="<"){
+        const m=tok.match(/^<\/?\s*([a-zA-Z0-9]+)/); if(!m)return; const tag=m[1].toLowerCase();
+        if(tag==="br"){out+="<w:r><w:br/></w:r>";return}
+        if(tok[1]==="/"){if(stack.length>1)stack.pop();return}
+        if(/\/>$/.test(tok))return;
+        const f=Object.assign({},stack[stack.length-1]);
+        if(tag==="b"||tag==="strong")f.b=true;
+        else if(tag==="sub"){f.sub=true;f.sup=false}
+        else if(tag==="sup"){f.sup=true;f.sub=false}
+        else if(tag==="span"&&/class="f"/.test(tok))f.color="5D666D";
+        else if(tag==="i")f.color="5D666D";
+        stack.push(f); return;
+      }
+      out+=wr(decode(tok),stack[stack.length-1]);
+    });
+    return out;
+  }
+  const para=(html,o={})=>`<w:p><w:pPr>${o.style?`<w:pStyle w:val="${o.style}"/>`:""}${o.keep?"<w:keepNext/>":""}${o.sp?`<w:spacing w:before="${o.sp[0]}" w:after="${o.sp[1]}"/>`:""}${o.ind?`<w:ind w:left="${o.ind}"/>`:""}</w:pPr>${runs(html,o.f)}</w:p>`;
+  function wtable(rows,head,widthsPct){
+    const TW=9638, n=Math.max(...rows.map(r=>r.length),head?head.length:0);
+    const wp=widthsPct||(()=>{const first=n>2?34:50;const rest=(100-first)/(n-1);return [first].concat(Array(n-1).fill(rest))})();
+    const ws=wp.map(p=>Math.round(TW*p/100));
+    const B='w:val="single" w:sz="4" w:space="0" w:color="A9B0B4"';
+    const cell=(h,i,hd)=>`<w:tc><w:tcPr><w:tcW w:w="${ws[i]||ws[ws.length-1]}" w:type="dxa"/>${hd?'<w:shd w:val="clear" w:color="auto" w:fill="E6EAEC"/>':""}</w:tcPr><w:p><w:pPr><w:spacing w:before="20" w:after="20"/><w:jc w:val="${i===0?"left":"right"}"/></w:pPr>${runs(h,{b:hd,sz:19,mono:i>0&&!hd})}</w:p></w:tc>`;
+    let x=`<w:tbl><w:tblPr><w:tblW w:w="${TW}" w:type="dxa"/><w:tblBorders><w:top ${B}/><w:left ${B}/><w:bottom ${B}/><w:right ${B}/><w:insideH ${B}/><w:insideV ${B}/></w:tblBorders><w:tblCellMar><w:left w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${ws.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>`;
+    if(head)x+=`<w:tr><w:trPr><w:tblHeader/></w:trPr>${head.map((h,i)=>cell(h,i,true)).join("")}</w:tr>`;
+    rows.forEach(r=>{x+=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${r.map((h,i)=>cell(h,i,false)).join("")}</w:tr>`});
+    return x+"</w:tbl>"+para("",{sp:[0,60]});
+  }
+  const domRows=sel=>[...document.querySelectorAll(sel)].map(tr=>[...tr.children].map(td=>td.innerHTML));
+  const visible=el=>!el.closest("[hidden]");
+  function inputRows(){
+    const rows=[];
+    $("f").querySelectorAll(".row").forEach(r=>{
+      if(!visible(r))return;
+      const lab=r.querySelector("label"), ctl=r.querySelector("input,select"), u=r.querySelector(".u");
+      if(!lab||!ctl||ctl.id==="grade"||ctl.id==="sgrade")return;
+      rows.push([lab.innerHTML.replace(/<i>/g," <i>"),esc(ctl.value),u?esc(u.textContent):""]);
+    });
+    const g=st.mode==="steel"?$("sgrade"):$("grade");
+    rows.unshift([st.mode==="steel"?"鋼材等級":"材料等級",esc(g.options[g.selectedIndex].text),""]);
+    if(st.mode==="hdpe")rows.push(["L₂、L₄ 取值",$("auto").checked?"自動（2H/α、2H/β）":"輸入值",""]);
+    else rows.push(["曲率半徑 R 取值",$("autoR").checked?"自動（1200D）":"輸入值",""]);
+    return rows;
+  }
+  function buildDocXML(){
+    const steel=st.mode==="steel"; let b=""; let h=0;
+    const H1=t=>para(`${++h}. ${t}`,{style:"Heading1",keep:true});
+    b+=para("HDD 水平導向鑽掘回拖力計算書",{style:"Title"});
+    b+=para(`<b>案例名稱：</b>${esc($("caseName").value.trim()||"（未命名）")}`);
+    b+=para(`<b>管材／方法：</b>${steel?"鋼管・PRCI 法（Huey et al., 1996）":"HDPE 管・ASTM F1962"}`);
+    b+=para(`<b>力單位：</b>${st.unit}　　<b>日期：</b>${today()}`,{sp:[0,160]});
+    b+=H1("輸入參數")+wtable(inputRows(),["參數","數值","單位"],[56,26,18]);
+    const res=[["最大回拖力 T<sub>max</sub>",$("oTmax").innerHTML.replace(/<span>/," ")],
+      [$("capLbl").innerHTML,$("oSPS").innerHTML],["建議鑽機回拖能力",$("oRig").innerHTML],
+      [steel?"控制比值":"使用率",$("oUtil").textContent.replace(/^[^0-9]+/,"")],["判定",$("oPill").textContent]];
+    b+=H1("計算結果")+wtable(res,["項目","結果"],[50,50]);
+    const wl=[...document.querySelectorAll("#oWarn li")].map(li=>li.innerHTML);
+    if(wl.length){b+=para("<b>注意事項</b>",{keep:true});wl.forEach(w=>b+=para("・"+w,{ind:240,f:{color:"9A5B10"}}))}
+    b+=H1(steel?"分段張力":"各點張力")+wtable(domRows("#oT tr"),domRows("#oTh tr")[0],steel?[28,12,12,12,12,12,12]:[34,22,22,22]);
+    b+=H1("中間量")+wtable(domRows("#oMid tr"),["項目","數值"],[55,45]);
+    if(steel)b+=H1("鋼管應力檢核（回拖階段）")+wtable(domRows("#oChk tr"),["檢核項目","計算值","容許值","比值"],[34,22,22,22]);
+    b+=H1("灌水壓艙比較")+wtable(domRows("#oCmp tr"),["管內狀態",$("cmpW").innerHTML,$("cmpT").innerHTML,"控制比值"],[28,24,24,24]);
+    b+=H1("計算過程")+para("以下以 kN、m、MPa 表示。",{f:{color:"5D666D"}});
+    document.querySelectorAll("#oProc details.step").forEach(d=>{
+      const sm=d.querySelector("summary"), num=sm.querySelector("b").textContent, res=sm.querySelector("em").innerHTML;
+      const title=[...sm.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join("");
+      b+=para(`${num}　${esc(title)}${res?`　<span class="f">（${res}）</span>`:""}`,{style:"Heading2",keep:true});
+      d.querySelectorAll(".eq>div").forEach(ln=>{
+        b+=ln.classList.contains("c")?para(ln.innerHTML,{ind:240,f:{color:"5D666D",sz:19}}):para(ln.innerHTML,{ind:240,sp:[0,30],f:{mono:true,sz:19}});
+      });
+    });
+    b+=H1("計算方法與限制");
+    document.querySelectorAll("footer p").forEach(p=>{if(visible(p))b+=para(p.innerHTML,{f:{sz:19}})});
+    const sect='<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>';
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${b}${sect}</w:body></w:document>`;
+  }
+  const STYLES=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Microsoft JhengHei" w:cs="Calibri"/><w:sz w:val="21"/><w:szCs w:val="21"/><w:lang w:val="en-US" w:eastAsia="zh-TW"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="60" w:line="288" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:spacing w:after="200"/></w:pPr><w:rPr><w:b/><w:color w:val="1D2328"/><w:sz w:val="34"/><w:szCs w:val="34"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="1D2328"/></w:pBdr><w:spacing w:before="280" w:after="120"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:color w:val="1D2328"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="160" w:after="40"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:color w:val="C2571A"/><w:sz w:val="21"/><w:szCs w:val="21"/></w:rPr></w:style></w:styles>`;
+  async function buildDocx(){
+    const z=new JSZip();
+    z.file("[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
+    z.file("_rels/.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+    z.file("word/_rels/document.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+    z.file("word/styles.xml",STYLES);
+    z.file("word/document.xml",buildDocXML());
+    return z.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+  }
+  $("bWord").addEventListener("click",async()=>{
+    if(typeof JSZip==="undefined"){msg("Word 匯出元件未載入，請重新整理頁面後再試。","err");return}
+    try{const blob=await buildDocx(); await save(baseName()+"_計算書_"+today()+".docx",blob,"Word 計算書已匯出。")}
+    catch(e){msg("產生 Word 檔時發生錯誤："+(e&&e.message||e),"err")}
+  });
+
+  $("grade").addEventListener("change",()=>{if($("grade").value!=="custom")$("sig").value=$("grade").value;run()});
+  $("sig").addEventListener("input",()=>{$("grade").value=["7.93","7.58"].includes($("sig").value)?$("sig").value:"custom"});
+  $("sgrade").addEventListener("change",()=>{if($("sgrade").value!=="custom")$("Fy").value=$("sgrade").value;run()});
+  $("Fy").addEventListener("input",()=>{const o=[...$("sgrade").options].map(x=>x.value);$("sgrade").value=o.includes($("Fy").value)?$("Fy").value:"custom"});
+  $("f").addEventListener("input",run);
+  $("f").addEventListener("change",run);
+  $("f").addEventListener("submit",e=>e.preventDefault());
+  $("mHDPE").addEventListener("click",()=>{st.mode="hdpe";setMode();run()});
+  $("mSteel").addEventListener("click",()=>{st.mode="steel";setMode();run()});
+  $("uKN").addEventListener("click",()=>{st.unit="kN";setMode();run()});
+  $("uTF").addEventListener("click",()=>{st.unit="tf";setMode();run()});
+  $("reset").addEventListener("click",()=>{ids.forEach(k=>$(k).value=defaults[k]);checks.forEach(k=>$(k).checked=true);run()});
+  try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",run)}catch(e){}
+  new MutationObserver(run).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+  setMode(); run();
+})();
+</script>
+
+</body>
+</html>
